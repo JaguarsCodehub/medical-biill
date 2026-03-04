@@ -1,0 +1,34 @@
+{
+    "name": "Shree Vighnaharta Medico - Bill Generator",
+    "short_name": "MedBill",
+    "description": "Medical bill generator for Shree Vighnaharta Medico & Distributors",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#f0f4f8",
+    "theme_color": "#1e3a5f",
+    "orientation": "portrait",
+    "scope": ".",
+    "icons": [
+        {
+            "src": "icons/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/icon.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ],
+    "categories": ["business", "utilities", "medical"],
+    "shortcuts": [
+        {
+            "name": "New Bill",
+            "short_name": "New",
+            "description": "Create a new medical bill",
+            "url": "./?action=new"
+        }
+    ]
+}

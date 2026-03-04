@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Icons</title>
+</head>
+<body>
+    <h1>Icon Generator</h1>
+    <p>Right-click and save each icon below:</p>
+    
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        sizes.forEach(size => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#2563eb');
+            gradient.addColorStop(1, '#1d4ed8');
+            
+            // Draw rounded rectangle background
+            const radius = size * 0.2;
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Draw medical cross
+            ctx.fillStyle = 'white';
+            const crossWidth = size * 0.23;
+            const crossLength = size * 0.69;
+            const crossStart = (size - crossLength) / 2;
+            const crossMid = (size - crossWidth) / 2;
+            
+            // Vertical bar
+            ctx.beginPath();
+            ctx.roundRect(crossMid, crossStart, crossWidth, crossLength, size * 0.04);
+            ctx.fill();
+            
+            // Horizontal bar
+            ctx.beginPath();
+            ctx.roundRect(crossStart, crossMid, crossLength, crossWidth, size * 0.04);
+            ctx.fill();
+            
+            // Draw small receipt icon
+            if (size >= 128) {
+                const receiptX = size * 0.62;
+                const receiptY = size * 0.62;
+                const receiptW = size * 0.28;
+                const receiptH = size * 0.32;
+                
+                ctx.fillStyle = '#f1f5f9';
+                ctx.beginPath();
+                ctx.roundRect(receiptX, receiptY, receiptW, receiptH, size * 0.02);
+                ctx.fill();
+                
+                // Receipt lines
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = size * 0.015;
+                ctx.lineCap = 'round';
+                
+                const lineX = receiptX + receiptW * 0.15;
+                const lineEndX = receiptX + receiptW * 0.85;
+                
+                ctx.beginPath();
+                ctx.moveTo(lineX, receiptY + receiptH * 0.25);
+                ctx.lineTo(lineEndX, receiptY + receiptH * 0.25);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(lineX, receiptY + receiptH * 0.5);
+                ctx.lineTo(lineEndX - receiptW * 0.15, receiptY + receiptH * 0.5);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(lineX, receiptY + receiptH * 0.75);
+                ctx.lineTo(lineEndX - receiptW * 0.3, receiptY + receiptH * 0.75);
+                ctx.stroke();
+            }
+            
+            // Create image element
+            const img = document.createElement('img');
+            img.src = canvas.toDataURL('image/png');
+            img.style.margin = '10px';
+            img.style.border = '1px solid #ccc';
+            
+            const container = document.createElement('div');
+            container.style.display = 'inline-block';
+            container.style.textAlign = 'center';
+            
+            const label = document.createElement('p');
+            label.textContent = `icon-${size}.png`;
+            
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = `icon-${size}.png`;
+            link.textContent = 'Download';
+            link.style.display = 'block';
+            
+            container.appendChild(img);
+            container.appendChild(label);
+            container.appendChild(link);
+            document.body.appendChild(container);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#grad)"/>
+  <!-- Medical Cross -->
+  <rect x="196" y="80" width="120" height="352" rx="20" fill="white"/>
+  <rect x="80" y="196" width="352" height="120" rx="20" fill="white"/>
+  <!-- Bill/Receipt Icon -->
+  <rect x="320" y="320" width="140" height="160" rx="10" fill="#f1f5f9" stroke="white" stroke-width="4"/>
+  <line x1="340" y1="360" x2="440" y2="360" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+  <line x1="340" y1="400" x2="420" y2="400" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+  <line x1="340" y1="440" x2="400" y2="440" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+</svg>
