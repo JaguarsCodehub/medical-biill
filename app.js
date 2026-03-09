@@ -364,13 +364,18 @@ function generateSingleBill(pdf, data, x, y, width, height) {
     
     // Patient Info Box
     const infoBoxHeight = 28;
+    
+    // Left column background - Draw first so border is on top
+    pdf.setFillColor(240, 244, 248);
+    pdf.rect(startX, currentY, innerWidth * 0.6, infoBoxHeight, 'F');
+    
+    // Patient Info Box Border
     pdf.setDrawColor(...primaryColor);
     pdf.setLineWidth(0.5);
     pdf.rect(startX, currentY, innerWidth, infoBoxHeight);
     
-    // Left column background
-    pdf.setFillColor(240, 244, 248);
-    pdf.rect(startX, currentY, innerWidth * 0.6, infoBoxHeight, 'F');
+    // Vertical divider line between columns
+    pdf.line(startX + innerWidth * 0.6, currentY, startX + innerWidth * 0.6, currentY + infoBoxHeight);
     
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
@@ -390,10 +395,15 @@ function generateSingleBill(pdf, data, x, y, width, height) {
     }
     if (data.patient.address) {
         pdf.setFontSize(9);
-        pdf.text('Addr: ' + data.patient.address.substring(0, 40), startX + 4, currentY + 21);
+        const address = 'Addr: ' + data.patient.address;
+        const splitAddress = pdf.splitTextToSize(address, (innerWidth * 0.6) - 8);
+        pdf.text(splitAddress, startX + 4, currentY + 21);
     }
     if (data.patient.phone) {
-        pdf.text('Ph: ' + data.patient.phone, startX + 4, currentY + 26);
+        // Move phone down slightly if address is long (wrapped)
+        const addressLines = data.patient.address ? pdf.splitTextToSize('Addr: ' + data.patient.address, (innerWidth * 0.6) - 8).length : 1;
+        const phoneY = currentY + 21 + (addressLines * 4);
+        pdf.text('Ph: ' + data.patient.phone, startX + 4, Math.min(phoneY, currentY + 27));
     }
     
     // Right side - Bill info
@@ -509,7 +519,7 @@ function generateSingleBill(pdf, data, x, y, width, height) {
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(12);
     pdf.setTextColor(...primaryColor);
-    pdf.text('GRAND TOTAL:', startX + innerWidth - 55, currentY + 9);
+    pdf.text('GRAND TOTAL:', startX + innerWidth - 100, currentY + 9);
     pdf.text('Rs. ' + data.total, startX + innerWidth - 5, currentY + 9, { align: 'right' });
     
     currentY += 18;
@@ -703,7 +713,7 @@ function printBill() {
                     }
                     .total-row {
                         display: flex;
-                        justify-content: flex-end;
+                        justify-content: space-between;
                         padding: 5px 10px;
                         font-size: 10pt;
                     }
@@ -723,7 +733,7 @@ function printBill() {
                         padding: 8px 10px;
                     }
                     .total-label {
-                        margin-right: 20px;
+                        /* removed margin-right for space-between */
                     }
                     .bill-footer {
                         display: flex;
