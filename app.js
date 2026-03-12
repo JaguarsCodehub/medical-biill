@@ -19,6 +19,9 @@ const addRowBtn = document.getElementById('addRowBtn');
 const subtotalAmountEl = document.getElementById('subtotalAmount');
 const discountAmountEl = document.getElementById('discountAmount');
 const totalAmountEl = document.getElementById('totalAmount');
+const afterDiscountAmountEl = document.getElementById('afterDiscountAmount');
+const cashDiscountEl = document.getElementById('cashDiscount');
+const roundOffEl = document.getElementById('roundOff');
 const generatePdfBtn = document.getElementById('generatePdfBtn');
 const printBtn = document.getElementById('printBtn');
 const whatsappBtn = document.getElementById('whatsappBtn');
@@ -69,6 +72,10 @@ function attachEventListeners() {
     if (whatsappBtn) whatsappBtn.addEventListener('click', shareToWhatsApp);
     if (clearBtn) clearBtn.addEventListener('click', clearForm);
     if (newBillBtn) newBillBtn.addEventListener('click', newBill);
+    
+    // Total fields change listeners
+    if (cashDiscountEl) cashDiscountEl.addEventListener('input', updateTotal);
+    if (roundOffEl) roundOffEl.addEventListener('input', updateTotal);
 }
 
 /**
@@ -163,11 +170,11 @@ function addMedicineRow() {
     newRow.className = 'medicine-row';
     newRow.innerHTML = `
         <td class="col-sr">${rowCount + 1}</td>
-        <td class="col-name">
-            <input type="text" class="medicine-name" placeholder="Medicine name">
-        </td>
         <td class="col-qty">
             <input type="number" class="medicine-qty" placeholder="1" min="1" value="1">
+        </td>
+        <td class="col-name">
+            <input type="text" class="medicine-name" placeholder="Medicine name">
         </td>
         <td class="col-price">
             <input type="number" class="medicine-price" placeholder="0" min="0" step="0.01">
@@ -220,10 +227,14 @@ function updateTotal() {
         totalDiscount += rowDiscount;
     });
     
-    const grandTotal = subtotal - totalDiscount;
+    const afterDiscount = subtotal - totalDiscount;
+    const cashDiscount = parseFloat(cashDiscountEl.value) || 0;
+    const roundOff = parseFloat(roundOffEl.value) || 0;
+    const grandTotal = afterDiscount - cashDiscount + roundOff;
     
     subtotalAmountEl.textContent = subtotal.toFixed(2);
     discountAmountEl.textContent = totalDiscount.toFixed(2);
+    if (afterDiscountAmountEl) afterDiscountAmountEl.textContent = afterDiscount.toFixed(2);
     totalAmountEl.textContent = grandTotal.toFixed(2);
 }
 
@@ -260,16 +271,21 @@ function getFormData() {
             age: document.getElementById('age').value,
             gender: document.getElementById('gender').value,
             phone: document.getElementById('phone').value.trim(),
-            address: document.getElementById('address').value.trim()
+            address: document.getElementById('address') ? document.getElementById('address').value.trim() : ''
         },
         bill: {
             date: document.getElementById('billDate').value,
+            time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
             number: document.getElementById('billNo').value || billNumber
         },
         medicines: medicines,
         subtotal: subtotalAmountEl.textContent,
         discount: discountAmountEl.textContent,
-        total: totalAmountEl.textContent
+        afterDiscount: afterDiscountAmountEl ? afterDiscountAmountEl.textContent : (subtotalAmountEl.textContent - discountAmountEl.textContent).toFixed(2),
+        cashDiscount: cashDiscountEl.value || '0.00',
+        roundOff: roundOffEl.value || '0.00',
+        total: totalAmountEl.textContent,
+        totalInWords: numberToWords(parseFloat(totalAmountEl.textContent) || 0)
     };
 }
 
@@ -306,237 +322,246 @@ function formatDate(dateStr) {
 }
 
 /**
+ * Utility to convert number to words (Indian Style)
+ */
+function numberToWords(amount) {
+    const units = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
+    const teens = ['TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+    const tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+    
+    function convert(n) {
+        if (n < 10) return units[n];
+        if (n < 20) return teens[n - 10];
+        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + units[n % 10] : '');
+        if (n < 1000) return units[Math.floor(n / 100)] + ' HUNDRED' + (n % 100 !== 0 ? ' ' + convert(n % 100) : '');
+        if (n < 100000) return convert(Math.floor(n / 1000)) + ' THOUSAND' + (n % 1000 !== 0 ? ' ' + convert(n % 1000) : '');
+        if (n < 10000000) return convert(Math.floor(n / 100000)) + ' LAKH' + (n % 100000 !== 0 ? ' ' + convert(n % 100000) : '');
+        return convert(Math.floor(n / 10000000)) + ' CRORE' + (n % 10000000 !== 0 ? ' ' + convert(n % 10000000) : '');
+    }
+
+    const whole = Math.floor(amount);
+    const fraction = Math.round((amount - whole) * 100);
+    
+    let res = "RS. " + (whole === 0 ? "ZERO" : convert(whole));
+    if (fraction > 0) {
+        res += " AND " + convert(fraction) + " PAISE";
+    }
+    return res + " ONLY";
+}
+
+/**
  * Generate professional bill on full A4 page using jsPDF directly
  */
 function generateSingleBill(pdf, data, x, y, width, height) {
     const margin = 15;
-    const innerWidth = width - (margin * 2);
-    const startX = x + margin;
-    let currentY = y + margin;
+    const paddingX = 20;
+    const startX = x + paddingX;
+    const endX = x + width - paddingX;
+    const innerWidth = width - (paddingX * 2);
+    let currentY = y + 20;
     
-    // Colors
-    const primaryColor = [30, 58, 95]; // #1e3a5f
-    const accentColor = [232, 168, 56]; // #e8a838
-    const textGray = [90, 122, 154]; // #5a7a9a
+    // Set Font to Courier for typewriter look
+    pdf.setFont('courier', 'bold');
+    pdf.setDrawColor(0, 0, 0);
     
-    // Border around entire bill
-    pdf.setDrawColor(...primaryColor);
-    pdf.setLineWidth(1);
-    pdf.rect(x + 10, y + 10, width - 20, height - 20);
+    // Green "+" Medical Logo (Even Bigger)
+    const logoX = startX + 6;
+    const logoY = y + 18;
+    pdf.setFillColor(40, 167, 69); // Green
+    pdf.circle(logoX, logoY, 12, 'F');
+    pdf.setDrawColor(255, 255, 255);
+    pdf.setLineWidth(1.5);
+    pdf.line(logoX - 6, logoY, logoX + 6, logoY);
+    pdf.line(logoX, logoY - 6, logoX, logoY + 6);
+    pdf.setLineWidth(0.2); // Reset
+    pdf.setDrawColor(0, 0, 0);
+
+    // 1. Header (Centered)
+    pdf.setFontSize(14);
+    pdf.text(data.shop.name, x + width / 2, currentY, { align: 'center' });
+    currentY += 8;
     
-    // Header Background
-    pdf.setFillColor(...primaryColor);
-    pdf.rect(x + 10, y + 10, width - 20, 35, 'F');
-    
-    // Shop Name
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(232, 168, 56); // Accent color
-    pdf.text(data.shop.name, x + width / 2, currentY + 8, { align: 'center' });
-    currentY += 12;
-    
-    // Shop Address
+    pdf.setFont('courier', 'normal');
     pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(data.shop.address, x + width / 2, currentY + 3, { align: 'center' });
+    // Address lines
+    const addressLines = [
+        'PLOT NO. 10, NEAR MAHALUNGE CIRCLE, MAHALUNGE',
+        'PUNE 411045',
+        '(Chemists & Druggists)',
+        'D.L. NO. 21525038000360'
+    ];
+    addressLines.forEach(line => {
+        pdf.text(line, x + width / 2, currentY, { align: 'center' });
+        currentY += 5;
+    });
     currentY += 5;
 
-    // License
-    pdf.setFontSize(8);
-    pdf.text(data.shop.license, x + width / 2, currentY + 3, { align: 'center' });
-    currentY += 5;
-    
-    // Shop Phone
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Ph: ' + data.shop.phone, x + width / 2, currentY + 3, { align: 'center' });
-    currentY += 16;
-    
-    // CASH MEMO title with accent bar
-    pdf.setFillColor(...accentColor);
-    pdf.rect(startX, currentY, innerWidth, 8, 'F');
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(...primaryColor);
-    pdf.text('CASH MEMO', x + width / 2, currentY + 6, { align: 'center' });
-    currentY += 14;
-    
-    // Patient Info Box
-    const infoBoxHeight = 28;
-    
-    // Left column background - Draw first so border is on top
-    pdf.setFillColor(240, 244, 248);
-    pdf.rect(startX, currentY, innerWidth * 0.6, infoBoxHeight, 'F');
-    
-    // Patient Info Box Border
-    pdf.setDrawColor(...primaryColor);
+    // Line 1
     pdf.setLineWidth(0.5);
-    pdf.rect(startX, currentY, innerWidth, infoBoxHeight);
+    pdf.line(startX, currentY, endX, currentY);
+    currentY += 10;
     
-    // Vertical divider line between columns
-    pdf.line(startX + innerWidth * 0.6, currentY, startX + innerWidth * 0.6, currentY + infoBoxHeight);
-    
+    // 2. Patient & Bill Info
+    pdf.setFont('courier', 'bold');
     pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(...primaryColor);
+    pdf.text('TO:', startX, currentY);
+    pdf.setFont('courier', 'normal');
+    pdf.text(data.patient.name.toUpperCase(), startX, currentY + 6);
     
-    // Left side - Patient info
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Patient: ', startX + 4, currentY + 7);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(data.patient.name || '', startX + 22, currentY + 7);
+    // Right side info
+    pdf.setFont('courier', 'bold');
+    pdf.text('BILL NO.:', endX - 45, currentY);
+    pdf.setFont('courier', 'normal');
+    pdf.text(String(data.bill.number), endX, currentY, { align: 'right' });
     
-    let patientDetails = '';
-    if (data.patient.age) patientDetails += 'Age: ' + data.patient.age;
-    if (data.patient.gender) patientDetails += (patientDetails ? '   |   ' : '') + data.patient.gender;
-    if (patientDetails) {
-        pdf.text(patientDetails, startX + 4, currentY + 14);
+    currentY += 6;
+    pdf.setFont('courier', 'bold');
+    pdf.text('BILL DATE:', endX - 45, currentY);
+    pdf.setFont('courier', 'normal');
+    pdf.text(formatDate(data.bill.date), endX, currentY, { align: 'right' });
+    
+    currentY += 6;
+    pdf.setFont('courier', 'bold');
+    pdf.text('BILL TIME:', endX - 45, currentY);
+    pdf.setFont('courier', 'normal');
+    pdf.text(data.bill.time || '', endX, currentY, { align: 'right' });
+    
+    currentY += 12;
+    pdf.setFont('courier', 'bold');
+    pdf.text('PRESCRIBED BY. RUGVED DONGRE', startX, currentY);
+    currentY += 10;
+    
+    // Line 2
+    pdf.setLineWidth(0.5);
+    pdf.line(startX, currentY, endX, currentY);
+    currentY += 1; // Start table just below line
+    
+    // 3. Medicine Table
+    // Columns: S.N, QTY, PRODUCT, MRP, DISC %, AMOUNT
+    const colWidths = [12, 12, 85, 25, 20, 20]; 
+    // Total is innerWidth. Let's adjust slightly for fit.
+    const colsX = [startX];
+    for (let i = 1; i < colWidths.length; i++) {
+        colsX.push(colsX[i-1] + (innerWidth * (colWidths[i-1] / 174))); // Rough ratio
     }
-    if (data.patient.address) {
-        pdf.setFontSize(9);
-        const address = 'Addr: ' + data.patient.address;
-        const splitAddress = pdf.splitTextToSize(address, (innerWidth * 0.6) - 8);
-        pdf.text(splitAddress, startX + 4, currentY + 21);
-    }
-    if (data.patient.phone) {
-        // Move phone down slightly if address is long (wrapped)
-        const addressLines = data.patient.address ? pdf.splitTextToSize('Addr: ' + data.patient.address, (innerWidth * 0.6) - 8).length : 1;
-        const phoneY = currentY + 21 + (addressLines * 4);
-        pdf.text('Ph: ' + data.patient.phone, startX + 4, Math.min(phoneY, currentY + 27));
-    }
+
+    const rowHeight = 8;
     
-    // Right side - Bill info
-    const rightX = startX + innerWidth * 0.62;
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Bill No: ', rightX, currentY + 10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(String(data.bill.number), rightX + 18, currentY + 10);
-    
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Date: ', rightX, currentY + 20);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(formatDate(data.bill.date), rightX + 14, currentY + 20);
-    
-    currentY += infoBoxHeight + 6;
-    
-    // Medicine Table
-    const colWidths = [15, innerWidth - 100, 18, 25, 18, 24]; // Sr, Name, Qty, MRP, Disc%, Amount
-    const rowHeight = 9;
-    const maxRows = Math.max(10, data.medicines.length);
-    
-    // Table header
-    pdf.setFillColor(...primaryColor);
-    pdf.rect(startX, currentY, innerWidth, rowHeight + 2, 'F');
-    
-    pdf.setFont('helvetica', 'bold');
+    // Table Header
+    pdf.setFont('courier', 'bold');
     pdf.setFontSize(8);
-    pdf.setTextColor(255, 255, 255);
     
-    let colX = startX;
-    pdf.text('Sr', colX + 5, currentY + 6);
-    colX += colWidths[0];
-    pdf.text('Medicine Name', colX + 3, currentY + 6);
-    colX += colWidths[1];
-    pdf.text('Qty', colX + 3, currentY + 6);
-    colX += colWidths[2];
-    pdf.text('MRP', colX + 3, currentY + 6);
-    colX += colWidths[3];
-    pdf.text('Disc%', colX + 1, currentY + 6);
-    colX += colWidths[4];
-    pdf.text('Amount', colX + 2, currentY + 6);
+    // Fill header with bright yellow
+    pdf.setFillColor(255, 255, 0);
+    pdf.rect(startX, currentY, innerWidth, rowHeight, 'F');
     
-    currentY += rowHeight + 2;
+    // Draw horizontal lines for table header top and bottom
+    pdf.line(startX, currentY, endX, currentY);
+    pdf.line(startX, currentY + rowHeight, endX, currentY + rowHeight);
     
-    // Table rows
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.setTextColor(...primaryColor);
+    // Vertical lines for header
+    let curX = startX;
+    const drawTableGrid = (yTop, yBottom) => {
+        pdf.line(startX, yTop, startX, yBottom);
+        pdf.line(endX, yTop, endX, yBottom);
+        let xPos = startX;
+        // colWidths ratio based on 100% innerWidth
+        const ratios = [0.08, 0.08, 0.45, 0.14, 0.12, 0.13]; 
+        let xPositions = [startX];
+        let accX = startX;
+        for(let i=0; i<ratios.length-1; i++){
+            accX += innerWidth * ratios[i];
+            xPositions.push(accX);
+            pdf.line(accX, yTop, accX, yBottom);
+        }
+        return xPositions;
+    };
+    
+    const xPositions = drawTableGrid(currentY, currentY + rowHeight);
+    
+    const headers = ['S.N', 'QTY', 'PRODUCT', 'MRP', 'DISC %', 'AMOUNT'];
+    headers.forEach((h, i) => {
+        pdf.text(h, xPositions[i] + (i === 0 || i === 1 ? 1 : 2), currentY + 5);
+    });
+    
+    currentY += rowHeight;
+    
+    // Table Rows
+    pdf.setFont('courier', 'normal');
+    const maxRows = Math.max(8, data.medicines.length);
+    const tableBottomY = currentY + (maxRows * rowHeight);
+    
+    // Draw vertical lines for the whole table height
+    drawTableGrid(currentY - rowHeight, tableBottomY);
     
     for (let i = 0; i < maxRows; i++) {
         const med = data.medicines[i];
-        
-        // Alternate row colors
-        if (i % 2 === 0) {
-            pdf.setFillColor(248, 250, 252);
-            pdf.rect(startX, currentY, innerWidth, rowHeight, 'F');
-        }
-        
-        // Row border
-        pdf.setDrawColor(209, 219, 230);
-        pdf.setLineWidth(0.3);
-        pdf.rect(startX, currentY, innerWidth, rowHeight);
-        
-        // Column separators
-        colX = startX + colWidths[0];
-        for (let j = 0; j < 5; j++) {
-            pdf.line(colX, currentY, colX, currentY + rowHeight);
-            colX += colWidths[j + 1];
-        }
-        
-        colX = startX;
         if (med) {
-            pdf.text(String(med.sr), colX + 5, currentY + 6);
-            colX += colWidths[0];
-            pdf.text(med.name.substring(0, 30), colX + 3, currentY + 6);
-            colX += colWidths[1];
-            pdf.text(String(med.qty), colX + 5, currentY + 6);
-            colX += colWidths[2];
-            pdf.text(med.price, colX + 3, currentY + 6);
-            colX += colWidths[3];
-            pdf.text(med.discount > 0 ? med.discount + '%' : '-', colX + 3, currentY + 6);
-            colX += colWidths[4];
-            pdf.text(med.amount, colX + 3, currentY + 6);
+            pdf.text(String(med.sr), xPositions[0] + 1, currentY + 5);
+            pdf.text(String(med.qty), xPositions[1] + 2, currentY + 5);
+            pdf.text(med.name.substring(0, 35).toUpperCase(), xPositions[2] + 2, currentY + 5);
+            pdf.text(med.price, xPositions[3] + 2, currentY + 5);
+            pdf.text(med.discount > 0 ? med.discount + '%' : '0.0%', xPositions[4] + 2, currentY + 5);
+            pdf.text(med.amount, endX - 2, currentY + 5, { align: 'right' });
         }
-        
+        // Draw horizontal line for each row
+        pdf.line(startX, currentY + rowHeight, endX, currentY + rowHeight);
         currentY += rowHeight;
     }
     
-    // Totals section
-    currentY += 4;
+    currentY += 10;
     
-    // Subtotal row
-    pdf.setFillColor(240, 244, 248);
-    pdf.rect(startX, currentY, innerWidth, 8, 'F');
+    // 4. Totals Section
+    pdf.setFont('courier', 'bold');
+    const totalLabelX = startX + 5;
+    const totalValueX = endX;
+    
+    const totals = [
+        { label: 'SUBTOTAL:', value: data.subtotal },
+        { label: 'DISCOUNT:', value: data.discount },
+        { label: 'AFTER DISCOUNT:', value: data.afterDiscount },
+        { label: 'CASH DISC:', value: data.cashDiscount },
+        { label: 'ROUND OFF:', value: data.roundOff }
+    ];
+    
     pdf.setFontSize(9);
-    pdf.setTextColor(...textGray);
-    pdf.text('Subtotal:', startX + innerWidth - 50, currentY + 6);
-    pdf.text('Rs. ' + data.subtotal, startX + innerWidth - 5, currentY + 6, { align: 'right' });
+    totals.forEach(t => {
+        pdf.text(t.label, totalLabelX, currentY);
+        pdf.text(t.value, totalValueX, currentY, { align: 'right' });
+        currentY += 6;
+    });
+    
+    currentY += 2;
+    pdf.line(startX, currentY, endX, currentY);
     currentY += 8;
     
-    // Discount row
-    pdf.setFillColor(232, 245, 233);
-    pdf.rect(startX, currentY, innerWidth, 8, 'F');
-    pdf.setTextColor(40, 167, 69);
-    pdf.text('Discount:', startX + innerWidth - 50, currentY + 6);
-    pdf.text('- Rs. ' + data.discount, startX + innerWidth - 5, currentY + 6, { align: 'right' });
-    currentY += 8;
-    
-    // Grand Total row
-    pdf.setFillColor(...accentColor);
-    pdf.rect(startX, currentY, innerWidth, 12, 'F');
-    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.text('PLEASE PAY:', totalLabelX, currentY);
+    // Slightly larger for the actual amount
     pdf.setFontSize(12);
-    pdf.setTextColor(...primaryColor);
-    pdf.text('GRAND TOTAL:', startX + innerWidth - 100, currentY + 9);
-    pdf.text('Rs. ' + data.total, startX + innerWidth - 5, currentY + 9, { align: 'right' });
+    // Explicitly set charSpace to 0 to avoid spaced out digits
+    pdf.text('RS. ' + String(data.total).replace(/\s+/g, ''), totalValueX, currentY, { align: 'right', charSpace: 0 });
     
-    currentY += 18;
-    
-    // Footer
-    pdf.setFont('helvetica', 'italic');
+    currentY += 12;
+    // Total in words
     pdf.setFontSize(9);
-    pdf.setTextColor(...textGray);
-    pdf.text('Thank you for choosing ' + data.shop.name.split(' ')[0] + ' ' + data.shop.name.split(' ')[1] + '!', startX + 5, currentY);
+    pdf.text(data.totalInWords.toUpperCase(), x + width / 2, currentY, { align: 'center' });
     
-    // Signature area
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.setTextColor(...primaryColor);
-    const sigX = startX + innerWidth - 45;
-    pdf.line(sigX, currentY + 12, startX + innerWidth - 5, currentY + 12);
-    pdf.text('Authorized Signature', sigX - 2, currentY + 18);
+    currentY += 10;
+    pdf.setLineWidth(0.2);
+    pdf.line(startX, currentY, endX, currentY);
+    currentY += 10;
+    
+    // Footer notes
+    pdf.setFontSize(8);
+    pdf.setFont('courier', 'normal');
+    pdf.text('All Medicines subject to Pune Jurisdiction only', x + width / 2, currentY, { align: 'center' });
+    currentY += 5;
+    pdf.text('Price Inclusive of all taxes', x + width / 2, currentY, { align: 'center' });
+    
+    currentY += 15;
+    pdf.setFontSize(8);
+    pdf.text('PRESCRIBED BY. RUGVED DONGRE', endX, currentY, { align: 'right' });
 }
 
 /**
@@ -798,7 +823,7 @@ function printBill() {
  * Generate bill HTML for printing - Full A4 size single bill
  */
 function generatePrintBillHTML(data) {
-    const maxRows = Math.max(10, data.medicines.length);
+    const maxRows = Math.max(8, data.medicines.length);
     let medicineRows = '';
     
     for (let i = 0; i < maxRows; i++) {
@@ -807,87 +832,169 @@ function generatePrintBillHTML(data) {
             medicineRows += `
                 <tr>
                     <td class="col-sr">${med.sr}</td>
-                    <td class="col-name">${med.name}</td>
                     <td class="col-qty">${med.qty}</td>
+                    <td class="col-name">${med.name.toUpperCase()}</td>
                     <td class="col-price">${med.price}</td>
-                    <td class="col-discount">${med.discount > 0 ? med.discount + '%' : '-'}</td>
+                    <td class="col-discount">${med.discount > 0 ? med.discount + '%' : '0.0%'}</td>
                     <td class="col-amount">${med.amount}</td>
                 </tr>
             `;
         } else {
             medicineRows += `
                 <tr>
-                    <td class="col-sr">&nbsp;</td>
-                    <td class="col-name">&nbsp;</td>
-                    <td class="col-qty">&nbsp;</td>
-                    <td class="col-price">&nbsp;</td>
-                    <td class="col-discount">&nbsp;</td>
-                    <td class="col-amount">&nbsp;</td>
+                    <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
                 </tr>
             `;
         }
     }
     
     return `
-        <div class="bill-header">
-            <h1>${data.shop.name}</h1>
-            <p>${data.shop.address}</p>
-            <p>${data.shop.license}</p>
-            <p class="phone">📞 ${data.shop.phone}</p>
-        </div>
-        
-        <div class="cash-memo">CASH MEMO</div>
-        
-        <div class="bill-info">
-            <div class="bill-info-left">
-                <div><strong>Patient:</strong> ${data.patient.name}</div>
-                ${data.patient.age || data.patient.gender ? 
-                    `<div>${data.patient.age ? 'Age: ' + data.patient.age : ''} ${data.patient.gender ? '| ' + data.patient.gender : ''}</div>` : ''}
-                ${data.patient.address ? `<div>Address: ${data.patient.address}</div>` : ''}
-                ${data.patient.phone ? `<div>Ph: ${data.patient.phone}</div>` : ''}
+        <style>
+            .print-bill {
+                font-family: 'Courier New', Courier, monospace;
+                color: #000;
+                padding: 10px;
+                text-transform: uppercase;
+                position: relative;
+            }
+            .logo-container {
+                position: absolute;
+                top: 5px;
+                left: 10px;
+            }
+            .print-header {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .print-header h1 { font-size: 18pt; margin-bottom: 5px; }
+            .print-header p { font-size: 10pt; margin: 2px 0; }
+            .hr-line { border-top: 2px solid #000; margin: 10px 0; }
+            .bill-top-info {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 15px;
+                font-size: 11pt;
+            }
+            .bill-table-print {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+                font-size: 10pt;
+            }
+            .bill-table-print th {
+                background: #ffff00; /* Bright Yellow */
+                color: #000;
+                padding: 5px;
+                text-align: left;
+                border: 1px solid #000;
+            }
+            .bill-table-print td {
+                border: 1px solid #000;
+                padding: 5px;
+                text-align: left;
+            }
+            .text-right { text-align: right !important; }
+            .print-totals {
+                width: 100%;
+                margin-bottom: 20px;
+                font-size: 11pt;
+            }
+            .total-row-p {
+                display: flex;
+                justify-content: space-between;
+                padding: 2px 0;
+            }
+            .grand-total-p {
+                font-size: 13pt;
+                font-weight: bold;
+                border-top: 1px solid #000;
+                margin-top: 5px;
+                padding-top: 5px;
+            }
+            .in-words {
+                text-align: center;
+                margin: 15px 0;
+                font-weight: bold;
+                font-size: 10pt;
+            }
+            .print-footer {
+                text-align: center;
+                font-size: 9pt;
+                margin-top: 30px;
+            }
+            .signature-p {
+                text-align: right;
+                margin-top: 40px;
+                font-size: 10pt;
+            }
+        </style>
+        <div class="print-bill">
+            <div class="logo-container">
+                <svg width="120" height="120" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="#28a745"/> <!-- Green Circle -->
+                    <rect x="45" y="25" width="10" height="50" fill="white"/> <!-- Vertical line -->
+                    <rect x="25" y="45" width="50" height="10" fill="white"/> <!-- Horizontal line -->
+                </svg>
             </div>
-            <div class="bill-info-right">
-                <div><strong>Bill No:</strong> ${data.bill.number}</div>
-                <div><strong>Date:</strong> ${formatDate(data.bill.date)}</div>
+            <div class="print-header">
+                <h1>${data.shop.name}</h1>
+                <p>PLOT NO. 10, NEAR MAHALUNGE CIRCLE, MAHALUNGE</p>
+                <p>PUNE 411045</p>
+                <p>(Chemists & Druggists)</p>
+                <p>D.L. NO. 21525038000360</p>
             </div>
-        </div>
-        
-        <table class="bill-table">
-            <thead>
-                <tr>
-                    <th class="col-sr">Sr</th>
-                    <th class="col-name">Medicine Name</th>
-                    <th class="col-qty">Qty</th>
-                    <th class="col-price">MRP</th>
-                    <th class="col-discount">Disc%</th>
-                    <th class="col-amount">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${medicineRows}
-            </tbody>
-        </table>
-        
-        <div class="totals">
-            <div class="total-row subtotal">
-                <span class="total-label">Subtotal:</span>
-                <span>Rs. ${data.subtotal}</span>
+            
+            <div class="hr-line"></div>
+            
+            <div class="bill-top-info">
+                <div>
+                    <strong>TO:</strong><br>
+                    ${data.patient.name}<br>
+                    <strong>PRESCRIBED BY. RUGVED DONGRE</strong>
+                </div>
+                <div class="text-right">
+                    <strong>BILL NO:</strong> ${data.bill.number}<br>
+                    <strong>BILL DATE:</strong> ${formatDate(data.bill.date)}<br>
+                    <strong>BILL TIME:</strong> ${data.bill.time}
+                </div>
             </div>
-            <div class="total-row discount">
-                <span class="total-label">Discount:</span>
-                <span>- Rs. ${data.discount}</span>
+            
+            <table class="bill-table-print">
+                <thead>
+                    <tr>
+                        <th>S.N</th>
+                        <th>QTY</th>
+                        <th>PRODUCT</th>
+                        <th>MRP</th>
+                        <th>DISC%</th>
+                        <th>AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${medicineRows}
+                </tbody>
+            </table>
+            
+            <div class="print-totals">
+                <div class="total-row-p"><span>SUBTOTAL:</span> <span>${data.subtotal}</span></div>
+                <div class="total-row-p"><span>DISCOUNT:</span> <span>${data.discount}</span></div>
+                <div class="total-row-p"><span>AFTER DISCOUNT:</span> <span>${data.afterDiscount}</span></div>
+                <div class="total-row-p"><span>CASH DISC:</span> <span>${data.cashDiscount}</span></div>
+                <div class="total-row-p"><span>ROUND OFF:</span> <span>${data.roundOff}</span></div>
+                <div class="total-row-p grand-total-p"><span>PLEASE PAY:</span> <span>RS. ${data.total}</span></div>
             </div>
-            <div class="total-row grand">
-                <span class="total-label">GRAND TOTAL:</span>
-                <span>Rs. ${data.total}</span>
+            
+            <div class="in-words">${data.totalInWords}</div>
+            
+            <div class="hr-line"></div>
+            
+            <div class="print-footer">
+                <p>All Medicines subject to Pune Jurisdiction only</p>
+                <p>Price Inclusive of all taxes</p>
             </div>
-        </div>
-        
-        <div class="bill-footer">
-            <div>Thank you for choosing Shree Vighnaharta!</div>
-            <div class="signature-area">
-                <div class="signature-line"></div>
-                <div class="signature-text">Authorized Signature</div>
+            
+            <div class="signature-p">
+                PRESCRIBED BY. RUGVED DONGRE
             </div>
         </div>
     `;
@@ -1025,11 +1132,11 @@ function clearForm() {
         medicineBody.innerHTML = `
             <tr class="medicine-row">
                 <td class="col-sr">1</td>
-                <td class="col-name">
-                    <input type="text" class="medicine-name" placeholder="Medicine name">
-                </td>
                 <td class="col-qty">
                     <input type="number" class="medicine-qty" placeholder="1" min="1" value="1">
+                </td>
+                <td class="col-name">
+                    <input type="text" class="medicine-name" placeholder="Medicine name">
                 </td>
                 <td class="col-price">
                     <input type="number" class="medicine-price" placeholder="0" min="0" step="0.01">

@@ -116,11 +116,11 @@
                         <table class="medicine-table" id="medicineTable">
                             <thead>
                                 <tr>
-                                    <th class="col-sr">SR</th>
-                                    <th class="col-name">MEDICINE NAME</th>
+                                    <th class="col-sr">S.N</th>
                                     <th class="col-qty">QTY</th>
+                                    <th class="col-name">PRODUCT</th>
                                     <th class="col-price">MRP</th>
-                                    <th class="col-discount">DISC%</th>
+                                    <th class="col-discount">DISC %</th>
                                     <th class="col-amount">AMOUNT</th>
                                     <th class="col-action"></th>
                                 </tr>
@@ -128,11 +128,11 @@
                             <tbody id="medicineBody">
                                 <tr class="medicine-row">
                                     <td class="col-sr">1</td>
-                                    <td class="col-name">
-                                        <input type="text" class="medicine-name" placeholder="Medicine name">
-                                    </td>
                                     <td class="col-qty">
                                         <input type="number" class="medicine-qty" placeholder="1" min="1" value="1">
+                                    </td>
+                                    <td class="col-name">
+                                        <input type="text" class="medicine-name" placeholder="Medicine name">
                                     </td>
                                     <td class="col-price">
                                         <input type="number" class="medicine-price" placeholder="0" min="0" step="0.01">
@@ -153,17 +153,29 @@
                     
                     <!-- Total Section -->
                     <div class="total-section">
-                        <div class="total-row subtotal">
+                        <div class="total-row grand-total">
                             <span class="total-label">Subtotal:</span>
                             <span class="total-value">₹ <span id="subtotalAmount">0.00</span></span>
                         </div>
-                        <div class="total-row discount-total">
-                            <span class="total-label">Total Discount:</span>
-                            <span class="total-value discount-value">- ₹ <span id="discountAmount">0.00</span></span>
+                        <div class="total-row">
+                            <span class="total-label">Discount:</span>
+                            <span class="total-value">- ₹ <span id="discountAmount">0.00</span></span>
+                        </div>
+                        <div class="total-row">
+                            <span class="total-label">After Discount:</span>
+                            <span class="total-value">₹ <span id="afterDiscountAmount">0.00</span></span>
+                        </div>
+                        <div class="total-row">
+                            <span class="total-label">Cash Disc:</span>
+                            <span class="total-value no-label"><input type="number" id="cashDiscount" value="0.00" step="0.01"></span>
+                        </div>
+                        <div class="total-row">
+                            <span class="total-label">Round Off:</span>
+                            <span class="total-value no-label"><input type="number" id="roundOff" value="0.00" step="0.001"></span>
                         </div>
                         <div class="grand-total-divider"></div>
                         <div class="total-row grand-total">
-                            <span class="total-label">Grand Total:</span>
+                            <span class="total-label">PLEASE PAY:</span>
                             <span class="total-value">₹ <span id="totalAmount">0.00</span></span>
                         </div>
                     </div>

@@ -308,18 +308,20 @@ body {
 }
 
 .col-sr {
-    width: 28px;
+    width: 35px;
     text-align: center !important;
     font-weight: 600;
     color: var(--text-secondary);
 }
 
-.col-name {
-    min-width: 120px;
+.col-qty {
+    width: 45px;
+    text-align: center !important;
 }
 
-.col-qty {
-    width: 60px;
+.col-name {
+    flex: 1;
+    min-width: 150px;
 }
 
 .col-price {
@@ -331,7 +333,7 @@ body {
 }
 
 .col-amount {
-    width: 75px;
+    width: 90px;
     text-align: right !important;
     font-weight: 600;
     color: var(--primary-dark);
@@ -452,7 +454,21 @@ body {
 
 .total-row.grand-total .total-value {
     font-size: 1.5rem;
-    color: var(--accent-color);
+    color: #e53e3e; /* Match the red/pink accent for the total bill shown in image if needed, or stick to accent */
+}
+
+.total-value input {
+    width: 80px;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+.total-value.no-label {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .discount-value {
