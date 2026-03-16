@@ -352,7 +352,7 @@ function numberToWords(amount) {
 /**
  * Generate professional bill on full A4 page using jsPDF directly
  */
-function generateSingleBill(pdf, data, x, y, width, height) {
+async function generateSingleBill(pdf, data, x, y, width, height) {
     const margin = 15;
     const paddingX = 20;
     const startX = x + paddingX;
@@ -364,17 +364,23 @@ function generateSingleBill(pdf, data, x, y, width, height) {
     pdf.setFont('courier', 'bold');
     pdf.setDrawColor(0, 0, 0);
     
-    // Green "+" Medical Logo (Even Bigger)
+    // Green "+" Medical Logo (Using icons/plus.png)
     const logoX = startX + 6;
     const logoY = y + 18;
-    pdf.setFillColor(40, 167, 69); // Green
-    pdf.circle(logoX, logoY, 12, 'F');
-    pdf.setDrawColor(255, 255, 255);
-    pdf.setLineWidth(1.5);
-    pdf.line(logoX - 6, logoY, logoX + 6, logoY);
-    pdf.line(logoX, logoY - 6, logoX, logoY + 6);
-    pdf.setLineWidth(0.2); // Reset
-    pdf.setDrawColor(0, 0, 0);
+    
+    try {
+        const response = await fetch('icons/plus.png');
+        const blob = await response.blob();
+        const base64data = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+        });
+        pdf.addImage(base64data, 'PNG', logoX - 12, logoY - 12, 24, 24);
+    } catch (e) {
+        console.error('Failed to load logo icon', e);
+        // Fallback or leave empty
+    }
 
     // 1. Header (Centered)
     pdf.setFontSize(14);
@@ -589,7 +595,7 @@ async function generatePDF() {
         const pageHeight = 297;
         
         // Generate single bill on full page
-        generateSingleBill(pdf, data, 0, 0, pageWidth, pageHeight);
+        await generateSingleBill(pdf, data, 0, 0, pageWidth, pageHeight);
         
         // Save as blob for WhatsApp sharing
         generatedPdfBlob = pdf.output('blob');
